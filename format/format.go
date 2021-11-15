@@ -10,22 +10,35 @@ import (
 
 const MaxSerialNumber = 999
 
-var headers []string = []string{"##", "###", "####", "#####", "######", "#######"}
+func AddSerialNumber(text string, config Config) string {
+	// 初始化配置
+	if err := config.init(); err != nil {
+		panic(err)
+	}
 
-func AddSerialNumber(text string) string {
 	levels := make([]int, MaxSerialNumber)
 	newText := bytes.NewBuffer(make([]byte, 0, len(text)*2))
 	reader := bufio.NewReader(strings.NewReader(text))
+	skip := false
 	for {
 		line, _, err := reader.ReadLine()
 		if err == io.EOF {
 			break
 		}
-		level := getLevel(string(line))
+		// 防止格式化代码注释
+		b := strings.HasPrefix(strings.TrimRight(string(line), ""), "```")
+		if b {
+			skip = !skip
+		}
+
+		level := getLevel(string(line), config)
 		var newLine string
-		if level != -1 {
+		if !skip && level != -1 {
 			levels[level] = levels[level] + 1
-			newLine = addSerial(deleteOldSerial(string(line)), levels[:level+1])
+			// 删除旧序号
+			newLine = deleteOldSerial(string(line), config)
+			// 添加新序号
+			newLine = addSerial(newLine, levels[:level+1], config)
 		} else {
 			newLine = string(line)
 		}
@@ -38,25 +51,34 @@ func AddSerialNumber(text string) string {
 	return newText.String()
 }
 
-func deleteOldSerial(line string) string {
+func deleteOldSerial(line string, config Config) string {
+	line = strings.TrimRight(line, " ")
 	strs := strings.Split(line, " ")
+
+	if len(strs) == 2 {
+
+		for _, r := range config.regexps {
+			strs[1] = r.ReplaceAllString(strs[1], "")
+		}
+	}
+	// 没有旧数据
 	if len(strs) <= 2 {
-		return line
+		return strings.Join(strs, " ")
 	}
 
-	return strs[0] + " " +  strs[2]
+	return strs[0] + " " + strs[2]
 }
 
-func addSerial(line string, levels []int) string {
-	prefix := levelsToString(levels)
+func addSerial(line string, levels []int, config Config) string {
+	prefix := config.LevelsToString(levels)
 	index := strings.Index(line, " ")
 	str := line[:index] + " " + prefix + line[index+1:]
 	return str
 }
 
-func getLevel(line string) int {
-	for i := len(headers) - 1; i >= 0; i-- {
-		b := strings.HasPrefix(line, headers[i])
+func getLevel(line string, config Config) int {
+	for i := len(config.Headers) - 1; i >= 0; i-- {
+		b := strings.HasPrefix(line, config.Headers[i]+" ")
 		if b {
 			return i
 		}
@@ -65,7 +87,7 @@ func getLevel(line string) int {
 	return -1
 }
 
-func levelsToString(levels []int) string {
+func DefaultLevelsToString(levels []int) string {
 	if len(levels) == 0 {
 		return ""
 	}
@@ -73,9 +95,10 @@ func levelsToString(levels []int) string {
 	length := len(levels)
 	for i := 0; i < length; i++ {
 		buf.WriteString(strconv.Itoa(levels[i]))
-		if i < length-1 {
+		if i < length {
 			buf.WriteString(".")
-		} else {
+		}
+		if i == length-1 {
 			buf.WriteString(" ")
 		}
 	}
