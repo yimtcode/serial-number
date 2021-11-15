@@ -17,6 +17,7 @@ func AddSerialNumber(text string, config Config) string {
 	}
 
 	levels := make([]int, MaxSerialNumber)
+	empty := make([]int, MaxSerialNumber)
 	newText := bytes.NewBuffer(make([]byte, 0, len(text)*2))
 	reader := bufio.NewReader(strings.NewReader(text))
 	skip := false
@@ -35,6 +36,7 @@ func AddSerialNumber(text string, config Config) string {
 		var newLine string
 		if !skip && level != -1 {
 			levels[level] = levels[level] + 1
+			copy(levels[level+1:], empty)
 			// 删除旧序号
 			newLine = deleteOldSerial(string(line), config)
 			// 添加新序号
