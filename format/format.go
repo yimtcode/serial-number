@@ -55,20 +55,18 @@ func AddSerialNumber(text string, config Config) string {
 
 func deleteOldSerial(line string, config Config) string {
 	line = strings.TrimRight(line, " ")
-	strs := strings.Split(line, " ")
-
-	if len(strs) == 2 {
-
-		for _, r := range config.regexps {
-			strs[1] = r.ReplaceAllString(strs[1], "")
-		}
+	index := strings.Index(line, " ")
+	if index == -1 {
+		return line
 	}
-	// 没有旧数据
-	if len(strs) <= 2 {
-		return strings.Join(strs, " ")
+	beforeStr := line[0:index]
+	afterStr := line[index+1:]
+	for _, r := range config.regexps {
+		afterStr = r.ReplaceAllString(afterStr, "")
+		afterStr = strings.TrimLeft(afterStr, " ")
 	}
 
-	return strs[0] + " " + strs[2]
+	return beforeStr + " " + afterStr
 }
 
 func addSerial(line string, levels []int, config Config) string {
